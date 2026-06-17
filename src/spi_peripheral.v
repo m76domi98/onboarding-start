@@ -1,36 +1,36 @@
 // Author: Michelle Dominic
-//
-// WHAT THIS MODULE DOES:
-//   Receives 16-bit SPI commands from an external controller and stores the
-//   decoded values into 5 configuration registers. Those registers are wired
-//   to the PWM peripheral, which uses them to control the output pins.
-//
-// HOW AN SPI TRANSACTION WORKS (high level):
-//   1. Controller pulls CS low  → "I'm about to send you something"
-//   2. Controller sends 16 bits one at a time, each bit on a rising SCLK edge
-//   3. Controller pulls CS high → "I'm done, commit what I sent"
-//   4. We decode the 16 bits: [R/W bit][7-bit address][8-bit data]
-//   5. If it was a write to a valid address, we store the data byte
 
-`default_nettype none
-// Compiler safety setting. Without this, any typo in a signal name would silently
-// create a new 1-bit wire instead of giving you an error. This turns typos into
-// errors, which is almost always what you want.
+/*
+This module recieves 16 bit spi command from ext controller.
+stores decoded valye to 5 config register -> wiered to pwm peripheral
+-> used to control output pins
+*/2][]
+
+/*
+ for my understanding -> how spi works
+ 1)  controller pulls cs low to say that imma send you sm
+ 2) controller sneds 16 buts one at a time on the rising sclock edge. one bit eacch time
+ 3) conroller pulls cs  high to say that im done sending stuff
+ 4)  decode the 16 bits [read.write but][7 bit address][8 bit data]
+ 5) if we write to a valid address we store the data byte
+*/
+
+
+`default_nettype none // compiler safety to turn type into error message instead of new wire
 
 module spi_peripheral(
-// "module" is like defining a class or function in other languages.
+// a module is like a class
 // Everything between "module" and "endmodule" is the hardware inside this block.
 
-    // -----------------------------------------------------------------------
-    // PORT LIST — what signals enter and exit this module
-    // "input wire"  = a signal that comes IN. Driven by whoever instantiates us.
-    // "output reg"  = a signal that goes OUT and is stored in a flip-flop (has memory).
-    // "output wire" = a signal that goes OUT but is just a combinational connection (no memory).
-    // -----------------------------------------------------------------------
+    // below is a port list which signals what goes in and out of this module
+    /*
+    input wires are signals that go in which is conr=trolled by the instaitinter
+    output reg is a signal that sstored in memory and output wire is the combo logic w/out the memory
+    */
 
     input  wire       clk,
     // The 10 MHz system clock. Every clocked block in this module ticks on its rising edge.
-    // "wire" because the clock is driven externally — we just receive it.
+    // clock is driveb extermaly
 
     input  wire       rst_n,
     // Active-low reset. rst_n = 0 means "reset right now". rst_n = 1 means "run normally".
@@ -42,7 +42,7 @@ module spi_peripheral(
 
     input  wire       spi_sclk,
     // The SPI clock driven by the controller (~100 kHz). NOT the same as our system clock.
-    // It's asynchronous — it doesn't line up with our 10 MHz clock. Must be synchronized first.
+    // It's asynchronous so it must be synchronized first.
     // In SPI Mode 0: clock idles LOW, and we sample COPI on the RISING edge.
 
     input  wire       spi_copi,
@@ -53,10 +53,10 @@ module spi_peripheral(
     output wire       spi_cipo,
     // CIPO = Controller In, Peripheral Out.
     // We would drive this if we supported reads. We don't, so we tie it to 0 below.
-    // Still declared as a port so it isn't left "floating" (unconnected pins in hardware = bad).
+    // Still declared as a port so it isn't left "floating"
 
     // -- The 5 registers this module controls --
-    // "output reg [7:0]" = 8-bit register that this module drives outward.
+    // "output reg [7:0]"= 8-bit register that this module drives outward.
     // The PWM peripheral reads all 5 of these to decide what to do with the output pins.
 
     output reg  [7:0] en_reg_out_7_0,
@@ -79,7 +79,7 @@ module spi_peripheral(
 );
 
     // =========================================================================
-    // Tie CIPO permanently to 0 — we never send data back to the controller.
+    // Tie CIPO permanently to 0 cus  we never send data back to the controller.
     // =========================================================================
     assign spi_cipo = 1'b0;
     // "assign" makes a permanent combinational (not clocked) connection.
