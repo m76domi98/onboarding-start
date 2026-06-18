@@ -4,7 +4,7 @@
 This module recieves 16 bit spi command from ext controller.
 stores decoded valye to 5 config register -> wiered to pwm peripheral
 -> used to control output pins
-*/2][]
+*/
 
 /*
  for my understanding -> how spi works
