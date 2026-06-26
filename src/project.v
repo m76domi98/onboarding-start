@@ -34,7 +34,7 @@ module tt_um_uwasic_onboarding_michelle_dominic (
     .spi_sclk       (ui_in[0]),
     .spi_copi       (ui_in[1]),
     .spi_cs_n       (ui_in[2]),
-    .spi_cipo       (),           // No readback
+    // .spi_cipo    (),           // omitted — no SPI readback in this design; leaving it as .spi_cipo() triggered a Verilator PINCONNECTEMPTY warning
     .en_reg_out_7_0 (en_reg_out_7_0),
     .en_reg_out_15_8(en_reg_out_15_8),
     .en_reg_pwm_7_0 (en_reg_pwm_7_0),
