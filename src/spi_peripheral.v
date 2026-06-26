@@ -46,9 +46,8 @@ module spi_peripheral(
     // controller out peripheral in — the controller drives this, we read it
     // one bit comes in per rising sclk edge
 
-    output wire       spi_cipo,
-    // controller in peripheral out — we would drive this for reads
-    // we dont support reads so we just tie it to 0, but still declare it so its not floating
+    // output wire    spi_cipo,
+    // not used — this design is write-only, no data is sent back to the controller
 
     // the 5 registers we output to the pwm peripheral
     // output reg means we store the value and drive it out
@@ -70,12 +69,8 @@ module spi_peripheral(
     // addr 0x04 — duty cycle for all outputs, 0x00=0% 0xFF=100%
 );
 
-    // =========================================================================
-    // tie cipo to 0 cus we never send data back to the controller
-    // =========================================================================
-    assign spi_cipo = 1'b0;
-    // assign = permanent combinational connection, like soldering to gnd
-    // 1'b0 = 1 bit wide, binary, value 0
+    // assign spi_cipo = 1'b0;
+    // not used — no readback supported, port removed to avoid Verilator PINCONNECTEMPTY warning
 
     // =========================================================================
     // stage 1 — synchronizers (handling the clock domain crossing)
