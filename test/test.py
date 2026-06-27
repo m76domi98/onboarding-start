@@ -211,12 +211,12 @@ async def test_pwm_freq(dut):
     # =========================================================================
 
     # RisingEdge suspends until uo_out[0] goes 0→1, no manual polling needed
-    await RisingEdge(dut.uo_out[0])
+    await RisingEdge(dut.pwm_out)
     t1 = cocotb.utils.get_sim_time(units="ns")
     dut._log.info(f"First rising edge at {t1} ns")
 
     # wait for the next rising edge to complete one full period
-    await RisingEdge(dut.uo_out[0])
+    await RisingEdge(dut.pwm_out)
     t2 = cocotb.utils.get_sim_time(units="ns")
     dut._log.info(f"Second rising edge at {t2} ns")
 
@@ -301,15 +301,15 @@ async def test_pwm_duty(dut):
         await send_spi_transaction(dut, 1, 0x04, reg_val)
 
         # STEP A — wait for rising edge (0→1): start of the high phase
-        await RisingEdge(dut.uo_out[0])
+        await RisingEdge(dut.pwm_out)
         t_rise1 = cocotb.utils.get_sim_time(units="ns")
 
         # STEP B — wait for falling edge (1→0): end of the high phase
-        await FallingEdge(dut.uo_out[0])
+        await FallingEdge(dut.pwm_out)
         t_fall = cocotb.utils.get_sim_time(units="ns")
 
         # STEP C — wait for next rising edge: one full period complete
-        await RisingEdge(dut.uo_out[0])
+        await RisingEdge(dut.pwm_out)
         t_rise2 = cocotb.utils.get_sim_time(units="ns")
 
         high_time = t_fall  - t_rise1

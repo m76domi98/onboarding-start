@@ -22,6 +22,7 @@ module tb ();
   wire [7:0] uo_out;
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
+  wire       pwm_out = uo_out[0]; // named single-bit tap so cocotb RisingEdge/FallingEdge works (Icarus VPI can't callback on bus slices)
 `ifdef GL_TEST
   wire VPWR = 1'b1;
   wire VGND = 1'b0;
