@@ -4,6 +4,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
+from cocotb.triggers import FallingEdge
 from cocotb.triggers import ClockCycles
 from cocotb.types import Logic
 from cocotb.types import LogicArray
@@ -209,32 +210,13 @@ async def test_pwm_freq(dut):
     #   one full period = 13 * 256 = 3328 clocks = 332800 ns = ~3004.8 hz
     # =========================================================================
 
-    # grab bit 0 of uo_out as the baseline to compare agianst
-    # "& 0x1" masks off everything except bit 0
-    prev = int(dut.uo_out.value) & 0x1
-
-    # loop until we catch the first 0→1 transition on uo_out[0]
-    while True:
-        await ClockCycles(dut.clk, 1)
-        curr = int(dut.uo_out.value) & 0x1
-        if prev == 0 and curr == 1:   # was 0, now its 1 — thats a rising edge!
-            break
-        prev = curr
-
+    # RisingEdge suspends until uo_out[0] goes 0→1, no manual polling needed
+    await RisingEdge(dut.uo_out[0])
     t1 = cocotb.utils.get_sim_time(units="ns")
     dut._log.info(f"First rising edge at {t1} ns")
 
-    # wait for the second rising edge
-    # important: set prev = curr (which is 1 rn) so the loop doesnt
-    # immediately trigger again — it has to wait for the pin to fall to 0 first
-    prev = curr
-    while True:
-        await ClockCycles(dut.clk, 1)
-        curr = int(dut.uo_out.value) & 0x1
-        if prev == 0 and curr == 1:
-            break
-        prev = curr
-
+    # wait for the next rising edge to complete one full period
+    await RisingEdge(dut.uo_out[0])
     t2 = cocotb.utils.get_sim_time(units="ns")
     dut._log.info(f"Second rising edge at {t2} ns")
 
@@ -318,35 +300,16 @@ async def test_pwm_duty(dut):
 
         await send_spi_transaction(dut, 1, 0x04, reg_val)
 
-        # STEP A — scan for a rising edge (0→1) on uo_out[0]
-        prev = int(dut.uo_out.value) & 0x1
-        while True:
-            await ClockCycles(dut.clk, 1)
-            curr = int(dut.uo_out.value) & 0x1
-            if prev == 0 and curr == 1:  # 0→1 transition = rising edge
-                break
-            prev = curr
+        # STEP A — wait for rising edge (0→1): start of the high phase
+        await RisingEdge(dut.uo_out[0])
         t_rise1 = cocotb.utils.get_sim_time(units="ns")
 
-        # STEP B — scan for the falling edge (1→0)
-        # prev = curr here which is 1, so we wait for it to drop back to 0
-        prev = curr
-        while True:
-            await ClockCycles(dut.clk, 1)
-            curr = int(dut.uo_out.value) & 0x1
-            if prev == 1 and curr == 0:  # 1→0 transition = falling edge
-                break
-            prev = curr
+        # STEP B — wait for falling edge (1→0): end of the high phase
+        await FallingEdge(dut.uo_out[0])
         t_fall = cocotb.utils.get_sim_time(units="ns")
 
-        # STEP C — scan for the next rising edge to close out one full period
-        prev = curr
-        while True:
-            await ClockCycles(dut.clk, 1)
-            curr = int(dut.uo_out.value) & 0x1
-            if prev == 0 and curr == 1:
-                break
-            prev = curr
+        # STEP C — wait for next rising edge: one full period complete
+        await RisingEdge(dut.uo_out[0])
         t_rise2 = cocotb.utils.get_sim_time(units="ns")
 
         high_time = t_fall  - t_rise1
