@@ -6,6 +6,8 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 from cocotb.triggers import FallingEdge
 from cocotb.triggers import ClockCycles
+from cocotb.triggers import with_timeout
+from cocotb.result import SimTimeoutError
 from cocotb.types import Logic
 from cocotb.types import LogicArray
 
@@ -322,30 +324,36 @@ async def test_pwm_duty(dut):
         results.append((measured, expected_pct, hex(reg_val)))
 
     # --- edge case: 0% duty cycle (0x00) ---
-    # in the rtl: pwm_signal = (pwm_counter < 0)
-    # pwm_counter is unsigned so it can never be less than 0, always false
-    # so the output should be stuck LOW the whole time
-    # sample 8 times spread across 2 full pwm periods (8 × 832 = 6656 clocks = 2 × 3328)
-    # so we catch any glitch, not just a single lucky snapshot
+    # pwm_signal = (pwm_counter < 0) in the rtl, but pwm_counter is unsigned
+    # so it literally cant ever be less than 0 — condition is always false, pin stays LOW
+    #
+    # old approach was sampling 8times but thatis wring cus thats not suffecient
+    # this way we just wait for ANY rising edge during 2 full periods
+    # if one fires we know the pin went high and somthings wrong
+    # if we time out with no edge = correctly stuck low the whole time
     await send_spi_transaction(dut, 1, 0x04, 0x00)
-    stuck_low = True
-    for _ in range(8):
-        await ClockCycles(dut.clk, 3328 // 4)  # advance ~quarter-period each step
-        if (int(dut.uo_out.value) & 0x1) != 0:
-            stuck_low = False
+    two_periods_ns = 2 * 3328 * 100  # 2 periods worth of ns (3328 clocks each * 100ns/clk)
+    try:
+        await with_timeout(RisingEdge(dut.pwm_out), timeout_time=two_periods_ns, timeout_unit="ns")
+        stuck_low = False  # rising edge happend - pin went high at some point,  bad
+    except SimTimeoutError:
+        stuck_low = True  # no edg whole time, good
     dut._log.info(f"0x00: pin is {'LOW — correct' if stuck_low else 'HIGH — WRONG'}")
 
     # --- edge case: 100% duty cycle (0xFF) ---
-    # the rtl has a hardcoded special case: if pwm_duty_cycle == 0xFF force output = 1
-    # this is needed becasue without it 0xFF would give 255/256 = 99.6% not 100%
-    # (pwm_counter counts 0 to 255, so "counter < 255" is only true 255 out of 256 times)
-    # same multi-sample approach — 8 checks across 2 full periods
+    # rtl has a special case: pwm_duty_cycle == 0xFF forces output = 1 always
+    # needed becasue otherwise 0xFF = 255/256 = 99.6%, not actually 100%
+    # (counter goes 0 to 255, "counter < 255" is true 255 out of 256 times)
+    #
+    # same thing as above but flipped — listen for a FallingEdge instead
+    # if pin dips low even once during 2 periods something is wrong
+    # timeout with no falling edge = pin was stuck high the whole time, correct
     await send_spi_transaction(dut, 1, 0x04, 0xFF)
-    stuck_high = True
-    for _ in range(8):
-        await ClockCycles(dut.clk, 3328 // 4)
-        if (int(dut.uo_out.value) & 0x1) != 1:
-            stuck_high = False
+    try:
+        await with_timeout(FallingEdge(dut.pwm_out), timeout_time=two_periods_ns, timeout_unit="ns")
+        stuck_high = False  # falling edge happend - pin went low at some point,  bad
+    except SimTimeoutError:
+        stuck_high = True  # no edg the whole time, good
     dut._log.info(f"0xFF: pin is {'HIGH — correct' if stuck_high else 'LOW — WRONG'}")
 
     # =========================================================================
